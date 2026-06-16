@@ -56,7 +56,7 @@ python rank.py --candidates ./candidates.jsonl --out ./submission.csv
 
 ### Running the Demo on Google Colab
 If evaluators want to try out the sandbox : 
-Visit this Colab Notebook : 
+- Visit this [Colab Notebook](https://colab.research.google.com/drive/1kTwqYYiaEpvuqTYHRULYiBMqLO4bMMLl?usp=sharing)
 And follow the instructions! (run the cells).
 
 - **Declaration**: This project was created with the help of Google Gemini.
