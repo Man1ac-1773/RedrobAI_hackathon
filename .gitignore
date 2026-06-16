@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Datasets and large generated files
+docs/
+resources/
+*.pkl
+!sample_precomputed_data.pkl
+*.pkl.gz
+*.npy
+*.h5
+*.model
+*.csv
+!sample_submission.csv
+*.yaml
+# IDEs
+.vscode/
+.idea/
+.spyderproject
+.ipynb_checkpoints/
+
+# others
+explore.py
+generate_sample_pkl.py

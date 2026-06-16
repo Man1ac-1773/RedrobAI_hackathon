@@ -1,0 +1,17 @@
+[project]
+name = "redrob-hackathon"
+version = "0.1.0"
+description = "Intelligent Candidate Discovery & Ranking Challenge"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "sentence-transformers",
+    "torch",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
