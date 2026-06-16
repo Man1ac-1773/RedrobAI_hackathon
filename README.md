@@ -29,7 +29,7 @@ This is the script executed for the final evaluation.
 ## Setup & Reproduction
 
 ### Local Environment Setup
-We use `uv` for fast package management, but standard `pip` works too.
+I used `uv` for fast package management, but standard `pip` works too.
 
 1. Install dependencies:
    ```bash
@@ -38,7 +38,7 @@ We use `uv` for fast package management, but standard `pip` works too.
    *(Or using uv: `uv sync`)*
 
 ### 1. Pre-computation Step (Offline)
-Because our full `precomputed_data.pkl` is ~367 MB (exceeding GitHub's 100 MB file limit), we provide the script that generates it, strictly adhering to Section 10.3 of the spec ("include pre-computed artifacts... or a script that produces them").
+Because the full `precomputed_data.pkl` is ~367 MB (exceeding GitHub's 100 MB file limit), I provided the script that generates it, strictly adhering to Section 10.3 of the spec ("include pre-computed artifacts... or a script that produces them").
 
 Before ranking, run the pre-processor to generate the embeddings:
 ```bash
