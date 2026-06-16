@@ -3,33 +3,10 @@ import pickle
 import numpy as np
 import pandas as pd
 
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    SentenceTransformer = None
-
-JD_TEXT = """
-Job Description: Senior AI Engineer — Founding Team
-Company: Redrob AI (Series A AI-native talent intelligence platform)
-Location: Pune/Noida, India (Hybrid — flexible cadence) | Open to relocation candidates from Tier-1 Indian cities
-Employment Type: Full-time
-Experience Required: 5–9 years
-
-Deep technical depth in modern ML systems — embeddings, retrieval, ranking, LLMs, fine-tuning.
-Scrappy product-engineering attitude — willing to ship a working ranker in a week even if the underlying ML is "obviously suboptimal," because we need to learn from real users before we know what to actually optimize for.
-Production experience with embeddings-based retrieval systems (sentence-transformers, OpenAI embeddings, BGE, E5, or similar) deployed to real users.
-Production experience with vector databases or hybrid search infrastructure — Pinecone, Weaviate, Qdrant, Milvus, OpenSearch, Elasticsearch, FAISS.
-Strong Python. Yes really, we care about code quality.
-Hands-on experience designing evaluation frameworks for ranking systems — NDCG, MRR, MAP, offline-to-online correlation, A/B test interpretation.
-"""
-
 def generate_reasoning(candidate_text, score, rank):
     """
     Generate a simple 1-2 sentence reasoning based on extracted features and rank.
-    To avoid hallucinations, we just safely state they matched the criteria and their score.
     """
-    # A lightweight deterministic heuristic for reasoning without an LLM call to save time.
-    # In a real pipeline, a small local LLM could summarize the raw text against JD.
     if rank <= 10:
         return f"Exceptional fit ({score:.3f}). Strong background in ML systems and relevant engineering roles. Highly active and engaged."
     elif rank <= 50:
@@ -47,21 +24,23 @@ def main():
     args = parser.parse_args()
 
     print("Loading precomputed data...")
-    with open("precomputed_data.pkl", "rb") as f:
-        precomputed = pickle.load(f)
+    try:
+        with open("precomputed_data.pkl", "rb") as f:
+            precomputed = pickle.load(f)
+    except FileNotFoundError:
+        # Fallback to sample for colab/sandbox testing if full is not present
+        with open("sample_precomputed_data.pkl", "rb") as f:
+            precomputed = pickle.load(f)
+            
+    # Extract the JD embedding and the candidate data
+    jd_embedding = precomputed["jd_embedding"]
+    candidates = precomputed["candidates"]
         
-    print(f"Loaded {len(precomputed)} candidates.")
+    print(f"Loaded {len(candidates)} candidates and JD embedding.")
 
-    if SentenceTransformer is None:
-        raise RuntimeError("SentenceTransformer is required to embed the JD.")
-        
-    print("Loading embedding model...")
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    jd_embedding = model.encode(JD_TEXT)
-
-    print("Ranking candidates...")
+    print("Ranking candidates (pure numpy, no network required)...")
     results = []
-    for cand in precomputed:
+    for cand in candidates:
         sim = cosine_similarity(jd_embedding, cand["embedding"])
         
         # Apply behavioral multiplier

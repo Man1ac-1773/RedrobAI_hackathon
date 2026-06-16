@@ -90,6 +90,21 @@ def calculate_behavioral_multiplier(candidate):
         
     return multiplier
 
+JD_TEXT = """
+Job Description: Senior AI Engineer — Founding Team
+Company: Redrob AI (Series A AI-native talent intelligence platform)
+Location: Pune/Noida, India (Hybrid — flexible cadence) | Open to relocation candidates from Tier-1 Indian cities
+Employment Type: Full-time
+Experience Required: 5–9 years
+
+Deep technical depth in modern ML systems — embeddings, retrieval, ranking, LLMs, fine-tuning.
+Scrappy product-engineering attitude — willing to ship a working ranker in a week even if the underlying ML is "obviously suboptimal," because we need to learn from real users before we know what to actually optimize for.
+Production experience with embeddings-based retrieval systems (sentence-transformers, OpenAI embeddings, BGE, E5, or similar) deployed to real users.
+Production experience with vector databases or hybrid search infrastructure — Pinecone, Weaviate, Qdrant, Milvus, OpenSearch, Elasticsearch, FAISS.
+Strong Python. Yes really, we care about code quality.
+Hands-on experience designing evaluation frameworks for ranking systems — NDCG, MRR, MAP, offline-to-online correlation, A/B test interpretation.
+"""
+
 def main():
     candidates = load_and_filter_candidates(DATA_PATH)
     
@@ -104,12 +119,11 @@ def main():
         processed_data.append({
             "candidate_id": c.get("candidate_id"),
             "multiplier": mult,
-            "raw_text": text, # keep for reasoning generation later
+            "raw_text": text,
             "profile": c.get("profile", {})
         })
         texts_to_embed.append(text)
         
-    # Generate embeddings
     if SentenceTransformer is None:
         print("sentence-transformers not installed. Skipping embedding generation.")
         return
@@ -117,15 +131,24 @@ def main():
     print("Loading embedding model (this may download weights on first run)...")
     model = SentenceTransformer("all-MiniLM-L6-v2")
     
-    print("Generating embeddings (this will take some time)...")
+    print("Generating candidate embeddings (this will take some time)...")
     embeddings = model.encode(texts_to_embed, show_progress_bar=True, convert_to_numpy=True)
     
     for i, data in enumerate(processed_data):
         data["embedding"] = embeddings[i]
         
-    print(f"Saving {len(processed_data)} records to {OUTPUT_PATH}...")
+    print("Generating JD embedding...")
+    jd_embedding = model.encode(JD_TEXT, convert_to_numpy=True)
+        
+    # Save both candidates and JD embedding
+    save_payload = {
+        "jd_embedding": jd_embedding,
+        "candidates": processed_data
+    }
+        
+    print(f"Saving {len(processed_data)} records + JD embedding to {OUTPUT_PATH}...")
     with open(OUTPUT_PATH, "wb") as f:
-        pickle.dump(processed_data, f)
+        pickle.dump(save_payload, f)
         
     print("Offline pre-processing complete!")
 

@@ -11,8 +11,7 @@ env/
 # Datasets and large generated files
 docs/
 resources/
-*.pkl
-!sample_precomputed_data.pkl
+precomputed_data.pkl
 *.pkl.gz
 *.npy
 *.h5
