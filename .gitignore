@@ -18,7 +18,6 @@ precomputed_data.pkl
 *.model
 *.csv
 !sample_submission.csv
-*.yaml
 # IDEs
 .vscode/
 .idea/
