@@ -61,7 +61,7 @@ ai_tools_used:
   # Other options: "Claude", "ChatGPT", "Cursor", "Gemini", "Codeium", "Other", "None"
 
 ai_usage_summary: |
-  Used Gemini for code review, debugging, and drafting the hybrid offline-online ranker architecture to meet CPU/no-network constraints.
+  Used Gemini for code review, debugging, and fine-tuning code to meet architectural constraints.  
 
 # ============================================================================
 # Approach summary (optional but recommended)
