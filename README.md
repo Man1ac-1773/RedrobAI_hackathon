@@ -95,31 +95,11 @@ it infers the dataset snapshot date from platform activity, validates IDs and
 duplicates, scores the supplied records, and uses candidate ID ascending for exact
 score ties. Nothing in the ranking path depends on released candidate IDs.
 
-## Optional feature artifact
-
-Precomputation is not required. For repeated runs, an optional compressed artifact
-can be generated:
-
-```bash
-python3 offline_preprocess.py \
-  --candidates ./candidates.jsonl \
-  --out ./artifacts/candidate_features.jsonl.gz
-
-python3 rank.py \
-  --candidates ./candidates.jsonl \
-  --features ./artifacts/candidate_features.jsonl.gz \
-  --out ./submission.csv
-```
-
-The artifact records its scoring version, reference date, candidate count, and the
-SHA-256 hash of the source dataset. Ranking fails loudly if the artifact is stale
-or belongs to another candidate file.
-
 ## Tests and benchmark
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m py_compile rank.py ranking_core.py offline_preprocess.py EDA/eda_script.py
+python3 -m py_compile rank.py ranking_core.py preflight.py EDA/eda_script.py
 ```
 
 Measured on the declared local CPU with the released 100,000-candidate JSONL:
@@ -145,7 +125,6 @@ For reviewer-facing implementation detail, see the
 
 - `rank.py`: official command-line entry point.
 - `ranking_core.py`: parsing, scoring, integrity checks, ranking, and reasoning.
-- `offline_preprocess.py`: optional hash-bound feature artifact builder.
 - `preflight.py`: executable repository, runtime, CSV, and reasoning audit.
 - `demo.ipynb`, `sample_candidates.json`: self-contained hosted demonstration using the organizer's sample.
 - `tests/test_ranking.py`: focused correctness and reproducibility tests.

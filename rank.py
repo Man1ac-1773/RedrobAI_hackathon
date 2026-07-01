@@ -7,17 +7,13 @@ import argparse
 import sys
 from datetime import datetime
 
-from ranking_core import load_feature_artifact, rank_candidates, write_submission
+from ranking_core import rank_candidates, write_submission
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Rank candidates for the Senior AI Engineer role")
     parser.add_argument("--candidates", required=True, help="Path to .jsonl, .jsonl.gz, .json, or .json.gz candidates")
     parser.add_argument("--out", required=True, help="Output CSV path")
-    parser.add_argument(
-        "--features",
-        help="Optional artifact made by offline_preprocess.py; it must match the candidate file exactly",
-    )
     parser.add_argument(
         "--reference-date",
         help="Dataset snapshot date (YYYY-MM-DD). Default: infer from latest platform activity",
@@ -33,18 +29,11 @@ def main() -> int:
         if args.reference_date:
             reference_date = datetime.strptime(args.reference_date, "%Y-%m-%d").date()
 
-        if args.features:
-            if reference_date is not None:
-                raise ValueError("--reference-date cannot be combined with a precomputed --features artifact")
-            ranked, resolved_date = load_feature_artifact(args.candidates, args.features)
-            source = f"verified feature artifact {args.features}"
-        else:
-            ranked, resolved_date = rank_candidates(args.candidates, reference_date)
-            source = "candidate records"
+        ranked, resolved_date = rank_candidates(args.candidates, reference_date)
 
         written = write_submission(ranked, args.out, args.limit)
         print(
-            f"Ranked {len(ranked):,} candidates from {source}; wrote {written} rows to {args.out} "
+            f"Ranked {len(ranked):,} candidates from candidate records; wrote {written} rows to {args.out} "
             f"(reference date {resolved_date.isoformat()})."
         )
         if written < args.limit:

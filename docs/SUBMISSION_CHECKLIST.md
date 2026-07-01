@@ -36,7 +36,6 @@ python3 preflight.py --candidates ./candidates.jsonl
 | --- | --- |
 | Clear setup and exact reproduction command | `README.md` |
 | Full ranking source | `rank.py`, `ranking_core.py` |
-| Optional precomputation source | `offline_preprocess.py` |
 | Dependency declaration and lock | `pyproject.toml`, `uv.lock` |
 | Portal metadata mirror | `submission_metadata.yaml` |
 | Hosted sandbox entry point | `demo.ipynb` and metadata Colab URL |
@@ -46,9 +45,9 @@ python3 preflight.py --candidates ./candidates.jsonl
 | Automated tests | `tests/` |
 | Automated submission audit | `preflight.py` |
 
-No precomputed artifact is required. The official command reads the candidate file
-directly, so a missing pickle, model weight, or embedding index cannot break Stage
-3 reproduction.
+The official command reads the candidate file directly. There is no preprocessing
+step, pickle, model weight, embedding index, or hidden artifact that can break
+Stage 3 reproduction.
 
 ## Reasoning Review Contract
 
@@ -85,7 +84,7 @@ These checks cannot be guaranteed by source code and must be confirmed at upload
 - India-based candidates: 97
 - Deterministic CSV SHA-256:
   `dbb89a05afdabeda59d8bbeaa620c276e302c331f4772f858f6b972eb2a20966`
-- Unit tests: 7 passing
+- Unit tests: 6 passing
 - Organizer CSV validator: passing
 
 Regenerate these measurements if scoring code or the candidate dataset changes.

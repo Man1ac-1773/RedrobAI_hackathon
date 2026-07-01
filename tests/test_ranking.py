@@ -9,10 +9,8 @@ from datetime import date
 from pathlib import Path
 
 from ranking_core import (
-    load_feature_artifact,
     rank_candidates,
     score_candidate,
-    write_feature_artifact,
     write_submission,
 )
 
@@ -123,17 +121,6 @@ class RankingTests(unittest.TestCase):
         self.assertEqual([int(row["rank"]) for row in rows], list(range(1, 101)))
         self.assertEqual([row["candidate_id"] for row in rows], sorted(row["candidate_id"] for row in rows))
         self.assertTrue(all(rows[i]["score"] >= rows[i + 1]["score"] for i in range(99)))
-
-    def test_artifact_rejects_a_different_candidate_file(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "candidates.jsonl"
-            source.write_text(json.dumps(candidate(1)) + "\n", encoding="utf-8")
-            artifact = root / "features.jsonl.gz"
-            write_feature_artifact(source, artifact, REFERENCE_DATE)
-            source.write_text(json.dumps(candidate(2)) + "\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "does not match"):
-                load_feature_artifact(source, artifact)
 
     def test_json_array_input_and_reference_date_inference(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

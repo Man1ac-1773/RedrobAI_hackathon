@@ -10,13 +10,8 @@ env/
 
 # Datasets and large generated files
 resources/
-precomputed_data.pkl
-*.pkl.gz
-artifacts/
+competition/
 *.jsonl.gz
-*.npy
-*.h5
-*.model
 *.csv
 !sample_submission.csv
 # IDEs

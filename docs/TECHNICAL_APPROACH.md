@@ -174,9 +174,9 @@ input's activity timestamps, validates duplicate IDs, and ranks any schema-
 compatible input. Small samples emit all available candidates; pools of 100 or more
 emit exactly 100.
 
-An optional precomputed artifact is available for repeated runs, but direct ranking
-does not depend on it. Artifacts contain the source SHA-256, scoring version,
-reference date, and record count. A mismatched or stale artifact fails loudly.
+There is no preprocessing step or external artifact. The evaluator-supplied
+candidate file is the only ranking input, which keeps reproduction independent of
+hidden caches, model weights, or dataset-specific indexes.
 
 ## Complexity and Constraints
 
@@ -200,6 +200,16 @@ similarity. A dense model could recover paraphrases that the phrase families mis
 but it also amplifies the exact keyword and honeypot failures highlighted by the
 challenge. The released profiles contain explicit production narratives, so the
 evidence-family approach provides a strong quality/latency/reproducibility balance.
+
+This decision was tested with `all-MiniLM-L6-v2` on CPU. Encoding all 100,000
+career-focused profiles projected to roughly 26 minutes, outside the five-minute
+limit. A feasible alternative first scored all profiles structurally and then
+semantically re-ranked the top 1,000; that completed in 34 seconds. At a 10%
+semantic weight it left the top 79 unchanged and replaced only four candidates near
+ranks 80-100. Manual inspection found that several promoted candidates had weaker
+availability, location, or experience fit than those removed. Because 80% of the
+competition metric is NDCG@10 and NDCG@50, this tail-only churn did not justify
+shipping model weights, Torch dependencies, and a less reliable sandbox path.
 
 Company and role priors are intentionally modest relative to career evidence. They
 encode JD-specific preferences, not universal candidate quality. Every decisive

@@ -22,7 +22,6 @@ REQUIRED_FILES = (
     "README.md",
     "rank.py",
     "ranking_core.py",
-    "offline_preprocess.py",
     "pyproject.toml",
     "uv.lock",
     "submission_metadata.yaml",

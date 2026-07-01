@@ -9,19 +9,16 @@ from __future__ import annotations
 
 import csv
 import gzip
-import hashlib
 import json
 import math
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import median
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterator
 
 
-SCORING_VERSION = "2026-07-01.2"
-ARTIFACT_FORMAT = "redrob-ranking-features-v1"
 OUTPUT_COLUMNS = ("candidate_id", "rank", "score", "reasoning")
 CANDIDATE_ID_RE = re.compile(r"^CAND_[0-9]{7}$")
 YEARS_RE = re.compile(r"\b(\d{1,2}(?:\.\d+)?)\+?\s+years?\b", re.IGNORECASE)
@@ -293,11 +290,6 @@ class RankedCandidate:
     notice_period_days: int = 0
     open_to_work: bool = False
     willing_to_relocate: bool = False
-
-    @classmethod
-    def from_artifact(cls, payload: dict[str, Any]) -> "RankedCandidate":
-        return cls(**payload)
-
 
 def _normalise(value: Any) -> str:
     text = str(value or "").lower().replace("\u2014", "-").replace("\u2013", "-")
@@ -797,72 +789,3 @@ def write_submission(ranked: list[RankedCandidate], output_path: str | Path, lim
                 }
             )
     return len(selected)
-
-
-def sha256_file(path: str | Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def write_feature_artifact(
-    candidates_path: str | Path,
-    artifact_path: str | Path,
-    reference_date: date | None = None,
-) -> tuple[int, date]:
-    ranked, resolved_date = rank_candidates(candidates_path, reference_date)
-    metadata = {
-        "artifact_format": ARTIFACT_FORMAT,
-        "scoring_version": SCORING_VERSION,
-        "source_sha256": sha256_file(candidates_path),
-        "candidate_count": len(ranked),
-        "reference_date": resolved_date.isoformat(),
-    }
-    output = Path(artifact_path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    opener = gzip.open if output.suffix.lower() == ".gz" else open
-    with opener(output, "wt", encoding="utf-8") as handle:
-        handle.write(json.dumps({"_meta": metadata}, separators=(",", ":")) + "\n")
-        for candidate in ranked:
-            handle.write(json.dumps(asdict(candidate), separators=(",", ":"), ensure_ascii=True) + "\n")
-    return len(ranked), resolved_date
-
-
-def load_feature_artifact(candidates_path: str | Path, artifact_path: str | Path) -> tuple[list[RankedCandidate], date]:
-    artifact = Path(artifact_path)
-    if not artifact.is_file():
-        raise FileNotFoundError(f"Feature artifact does not exist: {artifact}")
-    opener = gzip.open if artifact.suffix.lower() == ".gz" else open
-    with opener(artifact, "rt", encoding="utf-8") as handle:
-        first = handle.readline()
-        try:
-            metadata = json.loads(first)["_meta"]
-        except (json.JSONDecodeError, KeyError, TypeError) as exc:
-            raise ValueError(f"Invalid feature artifact header: {artifact}") from exc
-        if metadata.get("artifact_format") != ARTIFACT_FORMAT:
-            raise ValueError(f"Unsupported feature artifact format: {metadata.get('artifact_format')!r}")
-        if metadata.get("scoring_version") != SCORING_VERSION:
-            raise ValueError(
-                f"Feature artifact uses scoring version {metadata.get('scoring_version')!r}; "
-                f"expected {SCORING_VERSION!r}. Rebuild it."
-            )
-        actual_hash = sha256_file(candidates_path)
-        if metadata.get("source_sha256") != actual_hash:
-            raise ValueError("Feature artifact does not match the supplied candidate dataset")
-
-        ranked = []
-        for line_number, line in enumerate(handle, start=2):
-            if not line.strip():
-                continue
-            try:
-                ranked.append(RankedCandidate.from_artifact(json.loads(line)))
-            except (json.JSONDecodeError, TypeError) as exc:
-                raise ValueError(f"Invalid feature record on line {line_number} of {artifact}") from exc
-
-    expected_count = _as_int(metadata.get("candidate_count"), -1)
-    if expected_count != len(ranked):
-        raise ValueError(f"Feature artifact expected {expected_count} candidates but contained {len(ranked)}")
-    ranked.sort(key=lambda item: (-round(item.score, 8), item.candidate_id))
-    return ranked, datetime.strptime(metadata["reference_date"], "%Y-%m-%d").date()
