@@ -27,12 +27,12 @@ github_repo: "https://github.com/Man1ac-1773/RedrobAI_hackathon"
 # Required. Must be reachable. Private repos OK if you can grant organizer
 # access at Stage 3 (the email to add will be communicated then).
 
-sandbox_link: "https://colab.research.google.com/drive/1kTwqYYiaEpvuqTYHRULYiBMqLO4bMMLl?usp=sharing"
+sandbox_link: "https://colab.research.google.com/github/Man1ac-1773/RedrobAI_hackathon/blob/master/demo.ipynb"
 # Required. A working hosted environment where the ranker can be run on a small
 # candidate sample. See Section 10.5 of submission_spec.md for acceptable
 # platforms (HuggingFace Spaces, Streamlit Cloud, Replit, Colab, Docker, Binder).
 
-reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
+reproduce_command: "python3 rank.py --candidates ./candidates.jsonl --out ./submission.csv"
 # The single command that produces submission.csv from candidates.jsonl.
 # Should run end-to-end within 5 minutes on CPU with 16GB RAM and no network.
 
@@ -47,8 +47,8 @@ compute:
   os: "Pop!_OS 22.04 LTS"                              # Or "Ubuntu 22.04 LTS", etc.
   uses_gpu_for_inference: false                 # Must be false — see compute constraints
   has_network_during_ranking: false             # Must be false — no API calls during ranking
-  pre_computation_required: true               # true if you pre-compute embeddings or train models offline
-  pre_computation_time_minutes: 20               # Approximate, if applicable
+  pre_computation_required: false              # Direct ranking needs no artifact or model download
+  pre_computation_time_minutes: 0              # Optional cache generation is not required
 
 # ============================================================================
 # AI tools declaration
@@ -58,20 +58,23 @@ compute:
 # your code or your interview are flagged.
 ai_tools_used:
   - "Gemini"
+  - "ChatGPT"
   # Other options: "Claude", "ChatGPT", "Cursor", "Gemini", "Codeium", "Other", "None"
 
 ai_usage_summary: |
-  Used Gemini for code review, debugging, and fine-tuning code to meet architectural constraints.  
+  Used Gemini and ChatGPT/Codex for code review, debugging, implementation support,
+  and verification against the published execution constraints.
 
 # ============================================================================
 # Approach summary (optional but recommended)
 # ============================================================================
 methodology_summary: |
-  I used an offline pre-computation pipeline to heavily filter the candidates
-  and calculate text embeddings (MiniLM-L6-v2). Non-tech candidates with AI keyword-stuffing
-  were manually dropped. Behavioral signals were calculated to give a multiplier score.
-  The fast online ranking step computes cosine similarity against the JD and multiplies
-  it by the behavioral score, easily completing within the 5-minute CPU-only limit.
+  A deterministic, standard-library ranker scores career evidence, role fit, skill
+  credibility, experience, product-company history, Redrob behavior, and logistics.
+  Production retrieval/ranking/evaluation evidence outweighs self-declared keywords.
+  Integrity checks suppress impossible timelines, zero-duration expert skills, and
+  contradictory experience claims. The direct ranking path reads the supplied file,
+  requires no precomputation, model weights, GPU, network, or third-party packages.
 
 # ============================================================================
 # Declarations

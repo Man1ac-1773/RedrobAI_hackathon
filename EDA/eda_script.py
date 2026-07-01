@@ -1,113 +1,116 @@
-import json
-from collections import Counter, defaultdict
-from datetime import datetime
+#!/usr/bin/env python3
+"""Generate a compact, reproducible audit of the Redrob candidate pool."""
 
-file_path = "resources/[PUB] India_runs_data_and_ai_challenge/candidates.jsonl"
-output_path = "docs/EDA_report.md"
+from __future__ import annotations
 
-total_candidates = 0
-titles = Counter()
-industries = Counter()
+import argparse
+import sys
+from collections import Counter
+from datetime import date
+from pathlib import Path
 
-# Anomaly counters
-expert_zero_months = 0
-implausible_yoe_timeline = 0
-negative_duration = 0
-high_ai_skills_non_tech = 0
-low_engagement = 0
-high_engagement = 0
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
-# Track AI keywords
-ai_keywords = {"NLP", "Fine-tuning LLMs", "Image Classification", "RAG", "Pinecone", "Milvus", "Vector Database", "PyTorch", "Transformers", "LLMs", "LangChain"}
+from ranking_core import infer_reference_date, integrity_failures, iter_candidates  # noqa: E402
 
-# Signals distributions
-missing_signals = defaultdict(int)
 
-print("Starting EDA...")
+TARGET_TITLES = {
+    "AI Engineer",
+    "Applied ML Engineer",
+    "Lead AI Engineer",
+    "Machine Learning Engineer",
+    "NLP Engineer",
+    "Recommendation Systems Engineer",
+    "Search Engineer",
+    "Senior AI Engineer",
+    "Senior Applied Scientist",
+    "Senior Machine Learning Engineer",
+    "Senior NLP Engineer",
+    "Staff Machine Learning Engineer",
+}
 
-with open(file_path, "rt") as f:
-    for line in f:
-        total_candidates += 1
-        candidate = json.loads(line)
-        
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Audit the Redrob candidate dataset")
+    parser.add_argument("--candidates", required=True, help="Candidate JSON/JSONL input")
+    parser.add_argument("--out", default="EDA/EDA_report.md", help="Markdown report path")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    reference_date, _ = infer_reference_date(args.candidates)
+    titles: Counter[str] = Counter()
+    industries: Counter[str] = Counter()
+    failure_types: Counter[str] = Counter()
+    integrity_candidates = 0
+    target_profiles = 0
+    low_availability = 0
+    high_engagement = 0
+    total = 0
+
+    for candidate in iter_candidates(args.candidates):
+        total += 1
         profile = candidate.get("profile", {})
-        title = profile.get("current_title", "Unknown")
-        titles[title] += 1
-        industries[profile.get("current_industry", "Unknown")] += 1
-        
-        yoe = profile.get("years_of_experience", 0)
-        
-        # 1. Check for Honeypots
-        # Rule 1: Expert proficiency with 0 months duration
-        skills = candidate.get("skills", [])
-        is_honeypot_1 = False
-        for skill in skills:
-            if skill.get("proficiency") == "expert" and skill.get("duration_months", -1) == 0:
-                is_honeypot_1 = True
-                break
-        if is_honeypot_1:
-            expert_zero_months += 1
-            
-        # Rule 2: Career duration mismatch with YOE
-        career_history = candidate.get("career_history", [])
-        total_career_months = sum(role.get("duration_months", 0) for role in career_history)
-        if total_career_months / 12.0 < (yoe - 3): # Allowing some leeway
-            implausible_yoe_timeline += 1
-            
-        # Rule 3: Negative duration
-        if any(role.get("duration_months", 0) < 0 for role in career_history):
-            negative_duration += 1
-            
-        # 2. Check for Keyword Stuffers
-        is_non_tech = ("Manager" in title and "Engineering" not in title) or "Accountant" in title or "Support" in title or "Sales" in title or "Writer" in title
-        has_advanced_ai = any(s.get("name") in ai_keywords and s.get("proficiency") in ["advanced", "expert"] for s in skills)
-        if is_non_tech and has_advanced_ai:
-            high_ai_skills_non_tech += 1
-            
-        # 3. Behavioral Engagement
         signals = candidate.get("redrob_signals", {})
-        for k in ["last_active_date", "recruiter_response_rate"]:
-            if k not in signals:
-                missing_signals[k] += 1
-                
-        response_rate = signals.get("recruiter_response_rate", 0)
+        title = str(profile.get("current_title", "Unknown"))
+        titles[title] += 1
+        industries[str(profile.get("current_industry", "Unknown"))] += 1
+        target_profiles += int(title in TARGET_TITLES)
+
+        failures = integrity_failures(candidate)
+        if failures:
+            integrity_candidates += 1
+            failure_types.update(failures)
+
         try:
-            last_active = datetime.strptime(signals.get("last_active_date", "1970-01-01"), "%Y-%m-%d")
-            # If not logged in for 6 months (say before 2025-12-01 relative to dataset time ~mid 2026) and response rate < 0.1
-            if last_active < datetime(2025, 12, 1) and response_rate < 0.1:
-                low_engagement += 1
-            if last_active > datetime(2026, 3, 1) and response_rate > 0.6:
-                high_engagement += 1
-        except Exception:
-            pass
+            active_days = (reference_date - date.fromisoformat(signals["last_active_date"])).days
+        except (KeyError, TypeError, ValueError):
+            active_days = 3650
+        response_rate = float(signals.get("recruiter_response_rate", 0.0) or 0.0)
+        if active_days > 180 and response_rate < 0.10:
+            low_availability += 1
+        if active_days <= 90 and response_rate > 0.60:
+            high_engagement += 1
 
-# Write EDA report
-with open(output_path, "w") as f:
-    f.write("# Exploratory Data Analysis (EDA) Report - Candidate Dataset\n\n")
-    f.write(f"**Total Candidates Analyzed**: {total_candidates}\n\n")
-    
-    f.write("## 1. Demographics & Distributions\n\n")
-    f.write("### Top 15 Job Titles\n")
-    for t, c in titles.most_common(15):
-        f.write(f"- {t}: {c} ({(c/total_candidates)*100:.2f}%)\n")
-        
-    f.write("\n### Top 10 Industries\n")
-    for i, c in industries.most_common(10):
-        f.write(f"- {i}: {c} ({(c/total_candidates)*100:.2f}%)\n")
-        
-    f.write("\n## 2. Anomalies & Traps (Honeypots)\n\n")
-    f.write(f"- **Expert skill with 0 months duration (Clear Honeypot)**: {expert_zero_months}\n")
-    f.write(f"- **Implausible YOE timeline (Career roles don't add up to claimed YOE)**: {implausible_yoe_timeline}\n")
-    f.write(f"- **Negative career duration**: {negative_duration}\n")
-    
-    f.write("\n## 3. Keyword Stuffers\n\n")
-    f.write(f"- **Non-tech roles with Advanced/Expert AI skills**: {high_ai_skills_non_tech}\n")
-    f.write("  *(These are likely 'Marketing Managers' or 'Accountants' claiming expertise in RAG, Fine-tuning LLMs, etc.)*\n")
-    
-    f.write("\n## 4. Behavioral Engagement (`redrob_signals`)\n\n")
-    f.write(f"- **Low Engagement ('Perfect-on-paper' traps)**: {low_engagement}\n")
-    f.write("  *(Candidates who haven't logged in for >6 months and have <10% recruiter response rate)*\n")
-    f.write(f"- **High Engagement (Goldmine)**: {high_engagement}\n")
-    f.write("  *(Candidates active recently with >60% recruiter response rate)*\n")
+    lines = [
+        "# Candidate Dataset Audit",
+        "",
+        f"- Candidate records: **{total:,}**",
+        f"- Dataset reference date inferred from activity: **{reference_date.isoformat()}**",
+        f"- Direct target-role profiles: **{target_profiles:,}**",
+        f"- Profiles failing at least one integrity check: **{integrity_candidates:,}**",
+        "",
+        "## Most Common Titles",
+        "",
+    ]
+    lines.extend(f"- {title}: {count:,} ({count / total:.2%})" for title, count in titles.most_common(20))
+    lines.extend(["", "## Most Common Industries", ""])
+    lines.extend(f"- {industry}: {count:,} ({count / total:.2%})" for industry, count in industries.most_common(10))
+    lines.extend(["", "## Integrity Findings", ""])
+    lines.extend(f"- {reason}: {count:,}" for reason, count in failure_types.most_common())
+    lines.extend(
+        [
+            "",
+            "These checks are conservative consistency tests, not ground-truth labels. Any failing profile is held below score 5 by the ranker.",
+            "",
+            "## Behavioral Availability",
+            "",
+            f"- Inactive over 180 days with under 10% response: {low_availability:,}",
+            f"- Active within 90 days with over 60% response: {high_engagement:,}",
+            "",
+            "The ranking uses behavior as a modifier after technical relevance; high engagement cannot rescue an irrelevant profile.",
+            "",
+        ]
+    )
 
-print("EDA Complete. Report written to docs/EDA_report.md")
+    output = Path(args.out)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Wrote audit for {total:,} candidates to {output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

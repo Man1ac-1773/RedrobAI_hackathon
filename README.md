@@ -1,62 +1,156 @@
-# Redrob Hackathon: Intelligent Candidate Discovery & Ranking
+# Redrob Intelligent Candidate Ranking
 
-This repository contains my team's submission for the Intelligent Candidate Discovery & Ranking Challenge. 
-The goal is to identify the top 100 candidates for a "Senior AI Engineer" role from a dataset of 100,000 resumes, strictly adhering to compute constraints (CPU-only, < 5 minutes runtime) and without relying on paid LLM APIs.
+This repository ranks the released candidate pool for Redrob's Senior AI Engineer
+role. The ranking command is deterministic, CPU-only, makes no network calls, and
+uses only the Python standard library.
 
-## My Approach & Architecture
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Man1ac-1773/RedrobAI_hackathon/blob/master/demo.ipynb)
 
-To meet the strict 5-minute CPU-only compute limit and scalably handle the 100k candidate pool while avoiding paid API keys, I designed a **Hybrid Offline-Online Architecture**.
+## Reproduce the submission
 
-### 1. Offline Pre-processing (`offline_preprocess.py`)
-This step is run once to prepare the dataset.
-- **Data Cleaning & Filtering:** I automatically filter out explicit "honeypots" (e.g., claiming expert proficiency with 0 months duration) and "keyword stuffers" (e.g., non-engineering roles like Marketing Managers claiming AI expertise).
-- **Embeddings Calculation:** I compute dense semantic embeddings for each candidate using the lightweight, open-source `all-MiniLM-L6-v2` model.
-- **Behavioral Multipliers:** I calculate behavioral signals based on candidate tenure and experience consistency.
-- **Output:** The pre-processed dataset is saved as a serialized file (`precomputed_data.pkl`), containing 96k clean candidates. 
-
-### 2. Online Ranking (`rank.py`)
-This is the script executed for the final evaluation.
-- **Rapid Scoring:** It loads the pre-computed embeddings and embeds the target Job Description on the fly.
-- **Similarity & Ranking:** It computes cosine similarity between the candidate embeddings and the JD, applies the behavioral signal multiplier, and returns the top 100 candidates.
-- **Performance:** This online step easily runs well under the 5-minute CPU limit.
-
-## Repository Structure
-- `rank.py`: The main script to generate the top 100 candidates (`submission.csv`). Pure numpy, < 5 min runtime.
-- `offline_preprocess.py`: The script used to generate the precomputed embeddings and multipliers.
-- `sample_precomputed_data.pkl`: A lightweight subset (50 candidates) for quick testing or Colab demos.
-- `submission_metadata.yaml`: Configuration metadata for the submission.
-
-## Setup & Reproduction
-
-### Local Environment Setup
-I used `uv` for fast package management, but standard `pip` works too.
-
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   *(Or using uv: `uv sync`)*
-
-### 1. Pre-computation Step (Offline)
-Because the full `precomputed_data.pkl` is ~367 MB (exceeding GitHub's 100 MB file limit), I provided the script that generates it, strictly adhering to Section 10.3 of the spec ("include pre-computed artifacts... or a script that produces them").
-
-Before ranking, run the pre-processor to generate the embeddings:
-```bash
-python offline_preprocess.py
-```
-*(This may take 15-30 minutes and downloads huggingface weights. This step happens entirely offline).*
-
-### 2. Running the Ranking Script (Evaluation)
-To reproduce the submission CSV (`submission.csv`) from the candidates file, run the following single command:
+Python 3.10 or newer is required. There are no third-party runtime dependencies.
 
 ```bash
-python rank.py --candidates ./candidates.jsonl --out ./submission.csv
+python3 rank.py --candidates ./candidates.jsonl --out ./submission.csv
 ```
-> **Note:** As permitted by the spec, `rank.py` will read from the generated `precomputed_data.pkl`. It runs entirely locally on CPU, uses no network (no huggingface API calls), and finishes in under 1 minute.
 
-### Running the Demo on Google Colab
-If evaluators want to try out the sandbox : 
-- Visit this [Colab Notebook](https://colab.research.google.com/drive/1kTwqYYiaEpvuqTYHRULYiBMqLO4bMMLl?usp=sharing)
-And follow the instructions! (run the cells).
+The command reads the file supplied through `--candidates`; it does not rely on a
+bundled copy of the candidate pool or silently substitute sample data. Supported
+inputs are `.jsonl`, `.jsonl.gz`, `.json`, and `.json.gz`.
 
-- **Declaration**: This project was created with the help of Google Gemini.
+Generated CSVs and the released candidate dataset are intentionally ignored by
+Git: the evaluator supplies the candidate file, and the command above recreates
+the output without a hidden or manually edited artifact.
+
+For an official pool of at least 100 candidates, the command emits exactly 100
+rows. A smaller sandbox sample emits every available candidate and warns that the
+result is a demo rather than a validator-ready final submission.
+
+Validate the result with the organizer's script:
+
+```bash
+python3 validate_submission.py ./submission.csv
+```
+
+Run the repository's broader automated compliance check:
+
+```bash
+python3 preflight.py --candidates ./candidates.jsonl
+```
+
+The preflight executes the real ranking command with a five-minute timeout, checks
+the CSV contract, source-ID membership, deterministic ordering, explanation
+grounding and uniqueness, integrity failures, required repository files, metadata
+consistency, dependencies, and forbidden network/heavy imports.
+
+## Ranking method
+
+The scorer implements the gap between the words in the JD and the evidence the JD
+actually asks for. Each candidate receives a weighted score from seven independent
+dimensions:
+
+| Dimension | Weight | Evidence used |
+| --- | ---: | --- |
+| Career evidence | 30% | Production retrieval, ranking, evaluation, deployment, and ownership described in career history |
+| Role fit | 23% | Current role proximity to hands-on search, recommendation, NLP, and ML engineering |
+| Verified skill depth | 14% | Proficiency, duration, endorsements, and Redrob assessment scores, capped by skill family |
+| Experience | 10% | Preference for 5-9 years, strongest around 6-8, without making the range a hard filter |
+| Redrob behavior | 10% | Recency, response rate, open-to-work status, notice period, interview completion, and activity |
+| Product background | 8% | Product-company experience and the JD's consulting-only exclusion |
+| Location/logistics | 5% | India, preferred hubs, and willingness to relocate |
+
+Career evidence has the largest weight and self-declared skill families are capped.
+This prevents a long list of AI keywords from outranking someone who has shipped a
+search or recommendation system and measured it in production.
+
+The scorer also applies explicit, reviewable penalties for:
+
+- impossible company/employment timelines;
+- expert skills with zero usage duration;
+- contradictory claimed experience and career duration;
+- non-technical profiles stuffed with advanced AI skills;
+- consulting-only careers, pure research, or CV-only work without production IR;
+- repeated short tenures, prolonged inactivity, and low availability.
+
+Profiles that fail an integrity check are held below a score of 5, keeping likely
+honeypots out of the top 100 without hardcoding candidate IDs.
+
+## Reasoning quality
+
+Every output row receives two candidate-specific sentences. The first cites the
+candidate's title, employer, experience, and actual career evidence tied to the JD.
+The second cites activity, recruiter response rate, notice period, and the most
+important concern. Reasoning is generated only from fields present in that
+candidate's record.
+
+## Reproducibility and unseen inputs
+
+The final evaluation is specified against the released candidate pool with hidden
+relevance labels; the guidelines do not describe a separate hidden candidate test
+set. Stage 3 may rerun the released pool, while the required hosted sandbox runs on
+a supplied sample of at most 100 candidates.
+
+The implementation nevertheless supports a different candidate file end-to-end:
+it infers the dataset snapshot date from platform activity, validates IDs and
+duplicates, scores the supplied records, and uses candidate ID ascending for exact
+score ties. Nothing in the ranking path depends on released candidate IDs.
+
+## Optional feature artifact
+
+Precomputation is not required. For repeated runs, an optional compressed artifact
+can be generated:
+
+```bash
+python3 offline_preprocess.py \
+  --candidates ./candidates.jsonl \
+  --out ./artifacts/candidate_features.jsonl.gz
+
+python3 rank.py \
+  --candidates ./candidates.jsonl \
+  --features ./artifacts/candidate_features.jsonl.gz \
+  --out ./submission.csv
+```
+
+The artifact records its scoring version, reference date, candidate count, and the
+SHA-256 hash of the source dataset. Ranking fails loudly if the artifact is stale
+or belongs to another candidate file.
+
+## Tests and benchmark
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m py_compile rank.py ranking_core.py offline_preprocess.py EDA/eda_script.py
+```
+
+Measured on the declared local CPU with the released 100,000-candidate JSONL:
+
+- wall-clock ranking time: 17.4 seconds;
+- peak resident memory: under 190 MiB;
+- GPU: none;
+- network during ranking: none;
+- intermediate disk during direct ranking: only the output CSV.
+
+The included [demo notebook](demo.ipynb) clones this repository in Colab and runs
+immediately against [a bundled synthetic sample](demo_candidates.jsonl). It can
+instead accept an uploaded candidate sample, runs the same preflight and `rank.py`
+entry point, previews the reasoning, and downloads the CSV.
+
+For reviewer-facing implementation detail, see the
+[technical approach](docs/TECHNICAL_APPROACH.md) and the
+[requirement-by-requirement checklist](docs/SUBMISSION_CHECKLIST.md).
+
+## Repository layout
+
+- `rank.py`: official command-line entry point.
+- `ranking_core.py`: parsing, scoring, integrity checks, ranking, and reasoning.
+- `offline_preprocess.py`: optional hash-bound feature artifact builder.
+- `preflight.py`: executable repository, runtime, CSV, and reasoning audit.
+- `demo.ipynb`, `demo_candidates.jsonl`: self-contained hosted demonstration.
+- `tests/test_ranking.py`: focused correctness and reproducibility tests.
+- `submission_metadata.yaml`: environment and methodology declaration.
+- `docs/`: detailed technical design and submission compliance map.
+- `EDA/`: exploratory analysis of the released pool.
+
+AI assistance declaration: Gemini and ChatGPT/Codex were used for code review,
+debugging, and implementation support. The ranking logic is deterministic and can
+be inspected and reproduced without an AI service.

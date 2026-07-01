@@ -9,10 +9,11 @@ venv/
 env/
 
 # Datasets and large generated files
-docs/
 resources/
 precomputed_data.pkl
 *.pkl.gz
+artifacts/
+*.jsonl.gz
 *.npy
 *.h5
 *.model
@@ -23,7 +24,3 @@ precomputed_data.pkl
 .idea/
 .spyderproject
 .ipynb_checkpoints/
-
-# others
-explore.py
-generate_sample_pkl.py
