@@ -130,10 +130,12 @@ Measured on the declared local CPU with the released 100,000-candidate JSONL:
 - network during ranking: none;
 - intermediate disk during direct ranking: only the output CSV.
 
-The included [demo notebook](demo.ipynb) clones this repository in Colab and runs
-immediately against [a bundled synthetic sample](demo_candidates.jsonl). It can
-instead accept an uploaded candidate sample, runs the same preflight and `rank.py`
-entry point, previews the reasoning, and downloads the CSV.
+The included [demo notebook](demo.ipynb) downloads only `rank.py`,
+`ranking_core.py`, and the organizer-provided
+[50-candidate sample](sample_candidates.json) from raw GitHub. It can instead
+accept an uploaded candidate sample, validates the sample-sized output contract,
+previews the reasoning, and downloads the CSV. No repository clone or package
+installation is required.
 
 For reviewer-facing implementation detail, see the
 [technical approach](docs/TECHNICAL_APPROACH.md) and the
@@ -145,7 +147,7 @@ For reviewer-facing implementation detail, see the
 - `ranking_core.py`: parsing, scoring, integrity checks, ranking, and reasoning.
 - `offline_preprocess.py`: optional hash-bound feature artifact builder.
 - `preflight.py`: executable repository, runtime, CSV, and reasoning audit.
-- `demo.ipynb`, `demo_candidates.jsonl`: self-contained hosted demonstration.
+- `demo.ipynb`, `sample_candidates.json`: self-contained hosted demonstration using the organizer's sample.
 - `tests/test_ranking.py`: focused correctness and reproducibility tests.
 - `submission_metadata.yaml`: environment and methodology declaration.
 - `docs/`: detailed technical design and submission compliance map.

@@ -27,7 +27,7 @@ REQUIRED_FILES = (
     "uv.lock",
     "submission_metadata.yaml",
     "demo.ipynb",
-    "demo_candidates.jsonl",
+    "sample_candidates.json",
     "docs/TECHNICAL_APPROACH.md",
     "docs/SUBMISSION_CHECKLIST.md",
     "tests/test_ranking.py",

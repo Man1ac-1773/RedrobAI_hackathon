@@ -40,7 +40,7 @@ python3 preflight.py --candidates ./candidates.jsonl
 | Dependency declaration and lock | `pyproject.toml`, `uv.lock` |
 | Portal metadata mirror | `submission_metadata.yaml` |
 | Hosted sandbox entry point | `demo.ipynb` and metadata Colab URL |
-| Small preloaded sandbox input | `demo_candidates.jsonl` |
+| Small preloaded sandbox input | Organizer-provided `sample_candidates.json` (first 50 records) |
 | Technical methodology | `docs/TECHNICAL_APPROACH.md` |
 | Dataset audit | `EDA/EDA_report.md`, `EDA/eda_script.py` |
 | Automated tests | `tests/` |
